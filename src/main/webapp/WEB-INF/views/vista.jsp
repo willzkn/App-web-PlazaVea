@@ -8,6 +8,5 @@
 </head>
 <body>
     <h1><c:out value="${mensaje}"/></h1>
-    <h2>Test</h2>
 </body>
 </html>
