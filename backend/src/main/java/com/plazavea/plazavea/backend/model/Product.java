@@ -1,11 +1,11 @@
 package com.plazavea.plazavea.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "products")
@@ -15,59 +15,60 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @Size(max = 50, message = "El SKU no puede exceder los 50 caracteres")
+    @Column(unique = true, length = 50)
+    private String sku;
+    
     @NotBlank(message = "El nombre del producto es obligatorio")
     @Size(max = 200, message = "El nombre no puede exceder los 200 caracteres")
     @Column(nullable = false)
     private String name;
     
-    @Size(max = 1000, message = "La descripción no puede exceder los 1000 caracteres")
+    @Column(columnDefinition = "TEXT")
     private String description;
     
-    @NotNull(message = "El precio es obligatorio")
-    @DecimalMin(value = "0.0", inclusive = false, message = "El precio debe ser mayor a 0")
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
     
-    @Column(precision = 10, scale = 2)
-    private BigDecimal originalPrice;
+    @Column(name = "price_cents", nullable = false)
+    private Long priceCents;
     
-    @Size(max = 500, message = "La URL de la imagen no puede exceder los 500 caracteres")
-    private String image;
+    @Column(name = "discount_cents")
+    private Long discountCents = 0L;
     
-    @NotBlank(message = "La categoría es obligatoria")
-    @Size(max = 100, message = "La categoría no puede exceder los 100 caracteres")
     @Column(nullable = false)
-    private String category;
+    private Integer inventory = 0;
     
-    @NotBlank(message = "La unidad es obligatoria")
-    @Size(max = 20, message = "La unidad no puede exceder los 20 caracteres")
-    @Column(nullable = false)
-    private String unit;
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    private String imageUrl;
     
-    @NotNull(message = "El stock es obligatorio")
-    @Column(nullable = false)
-    private Integer stock;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
     
-    @Column
-    private Boolean isPromo = false;
+    @OneToMany(mappedBy = "product")
+    @JsonIgnore
+    private List<CartItem> cartItems;
     
-    @Column
-    private Boolean isNew = false;
+    @OneToMany(mappedBy = "product")
+    @JsonIgnore
+    private List<OrderItem> orderItems;
     
-    @Column(precision = 5, scale = 2)
-    private Integer discount;
+    public Product() {
+        this.createdAt = LocalDateTime.now();
+    }
     
-    public Product() {}
-    
-    public Product(String name, String description, BigDecimal price, String image, 
-                   String category, String unit, Integer stock) {
+    public Product(String sku, String name, String description, Category category, 
+                   Long priceCents, Long discountCents, Integer inventory, String imageUrl) {
+        this.sku = sku;
         this.name = name;
         this.description = description;
-        this.price = price;
-        this.image = image;
         this.category = category;
-        this.unit = unit;
-        this.stock = stock;
+        this.priceCents = priceCents;
+        this.discountCents = discountCents != null ? discountCents : 0L;
+        this.inventory = inventory != null ? inventory : 0;
+        this.imageUrl = imageUrl;
+        this.createdAt = LocalDateTime.now();
     }
     
     public Long getId() {
@@ -76,6 +77,14 @@ public class Product {
     
     public void setId(Long id) {
         this.id = id;
+    }
+    
+    public String getSku() {
+        return sku;
+    }
+    
+    public void setSku(String sku) {
+        this.sku = sku;
     }
     
     public String getName() {
@@ -94,75 +103,67 @@ public class Product {
         this.description = description;
     }
     
-    public BigDecimal getPrice() {
-        return price;
-    }
-    
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-    
-    public BigDecimal getOriginalPrice() {
-        return originalPrice;
-    }
-    
-    public void setOriginalPrice(BigDecimal originalPrice) {
-        this.originalPrice = originalPrice;
-    }
-    
-    public String getImage() {
-        return image;
-    }
-    
-    public void setImage(String image) {
-        this.image = image;
-    }
-    
-    public String getCategory() {
+    public Category getCategory() {
         return category;
     }
     
-    public void setCategory(String category) {
+    public void setCategory(Category category) {
         this.category = category;
     }
     
-    public String getUnit() {
-        return unit;
+    public Long getPriceCents() {
+        return priceCents;
     }
     
-    public void setUnit(String unit) {
-        this.unit = unit;
+    public void setPriceCents(Long priceCents) {
+        this.priceCents = priceCents;
     }
     
-    public Integer getStock() {
-        return stock;
+    public Long getDiscountCents() {
+        return discountCents;
     }
     
-    public void setStock(Integer stock) {
-        this.stock = stock;
+    public void setDiscountCents(Long discountCents) {
+        this.discountCents = discountCents;
     }
     
-    public Boolean getIsPromo() {
-        return isPromo;
+    public Integer getInventory() {
+        return inventory;
     }
     
-    public void setIsPromo(Boolean isPromo) {
-        this.isPromo = isPromo;
+    public void setInventory(Integer inventory) {
+        this.inventory = inventory;
     }
     
-    public Boolean getIsNew() {
-        return isNew;
+    public String getImageUrl() {
+        return imageUrl;
     }
     
-    public void setIsNew(Boolean isNew) {
-        this.isNew = isNew;
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
     
-    public Integer getDiscount() {
-        return discount;
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
     
-    public void setDiscount(Integer discount) {
-        this.discount = discount;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+    
+    public List<CartItem> getCartItems() {
+        return cartItems;
+    }
+    
+    public void setCartItems(List<CartItem> cartItems) {
+        this.cartItems = cartItems;
+    }
+    
+    public List<OrderItem> getOrderItems() {
+        return orderItems;
+    }
+    
+    public void setOrderItems(List<OrderItem> orderItems) {
+        this.orderItems = orderItems;
     }
 }

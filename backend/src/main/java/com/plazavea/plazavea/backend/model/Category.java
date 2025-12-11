@@ -1,8 +1,10 @@
 package com.plazavea.plazavea.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 
 @Entity
 @Table(name = "categories")
@@ -13,24 +15,30 @@ public class Category {
     private Long id;
     
     @NotBlank(message = "El nombre de la categoría es obligatorio")
-    @Size(max = 100, message = "El nombre no puede exceder los 100 caracteres")
-    @Column(nullable = false, unique = true)
+    @Size(max = 120, message = "El nombre no puede exceder los 120 caracteres")
+    @Column(nullable = false)
     private String name;
     
-    @Size(max = 10, message = "El ícono no puede exceder los 10 caracteres")
-    private String icon;
+    @Column(name = "parent_id")
+    private Long parentId;
     
-    @NotBlank(message = "El slug es obligatorio")
-    @Size(max = 100, message = "El slug no puede exceder los 100 caracteres")
-    @Column(nullable = false, unique = true)
-    private String slug;
+    @OneToMany(mappedBy = "category")
+    @JsonIgnore
+    private List<Product> products;
+    
+    @OneToMany(mappedBy = "parentId")
+    @JsonIgnore
+    private List<Category> subcategories;
+    
+    @ManyToOne
+    @JoinColumn(name = "parent_id", insertable = false, updatable = false)
+    private Category parent;
     
     public Category() {}
     
-    public Category(String name, String icon, String slug) {
+    public Category(String name, Long parentId) {
         this.name = name;
-        this.icon = icon;
-        this.slug = slug;
+        this.parentId = parentId;
     }
     
     public Long getId() {
@@ -49,19 +57,35 @@ public class Category {
         this.name = name;
     }
     
-    public String getIcon() {
-        return icon;
+    public Long getParentId() {
+        return parentId;
     }
     
-    public void setIcon(String icon) {
-        this.icon = icon;
+    public void setParentId(Long parentId) {
+        this.parentId = parentId;
     }
     
-    public String getSlug() {
-        return slug;
+    public List<Product> getProducts() {
+        return products;
     }
     
-    public void setSlug(String slug) {
-        this.slug = slug;
+    public void setProducts(List<Product> products) {
+        this.products = products;
+    }
+    
+    public List<Category> getSubcategories() {
+        return subcategories;
+    }
+    
+    public void setSubcategories(List<Category> subcategories) {
+        this.subcategories = subcategories;
+    }
+    
+    public Category getParent() {
+        return parent;
+    }
+    
+    public void setParent(Category parent) {
+        this.parent = parent;
     }
 }

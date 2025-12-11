@@ -2,7 +2,8 @@ package com.plazavea.plazavea.backend.controller;
 
 import com.plazavea.plazavea.backend.model.Order;
 import com.plazavea.plazavea.backend.model.OrderItem;
-import com.plazavea.plazavea.backend.model.OrderStatus;
+import com.plazavea.plazavea.backend.model.Product;
+import com.plazavea.plazavea.backend.model.User;
 import com.plazavea.plazavea.backend.repository.OrderRepository;
 import com.plazavea.plazavea.backend.repository.ProductRepository;
 import jakarta.validation.Valid;
@@ -11,8 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -30,7 +29,7 @@ public class OrderController {
 
     @GetMapping
     public ResponseEntity<List<Order>> getAllOrders() {
-        List<Order> orders = orderRepository.findAllOrderByDateDesc();
+        List<Order> orders = orderRepository.findAllOrderByCreatedAtDesc();
         return ResponseEntity.ok(orders);
     }
 
@@ -41,34 +40,28 @@ public class OrderController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/receipt/{receiptId}")
-    public ResponseEntity<Order> getOrderByReceiptId(@PathVariable String receiptId) {
-        Optional<Order> order = orderRepository.findByReceiptId(receiptId);
-        return order.map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<Order>> getOrdersByUserId(@PathVariable Long userId) {
+        List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        return ResponseEntity.ok(orders);
     }
 
     @GetMapping("/status/{status}")
     public ResponseEntity<List<Order>> getOrdersByStatus(@PathVariable String status) {
-        List<Order> orders = orderRepository.findByStatusOrderByDateDesc(status);
+        List<Order> orders = orderRepository.findByStatusOrderByCreatedAtDesc(status);
         return ResponseEntity.ok(orders);
     }
 
     @PostMapping
     public ResponseEntity<Order> createOrder(@Valid @RequestBody OrderRequest orderRequest) {
-        if (orderRepository.existsByReceiptId(orderRequest.getReceiptId())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
-        }
-
         Order order = new Order();
-        order.setReceiptId(orderRequest.getReceiptId());
-        order.setDate(LocalDateTime.now());
-        order.setPaymentMethod(orderRequest.getPaymentMethod());
-        order.setStatus(OrderStatus.COMPLETED);
+        order.setUser(orderRequest.getUser());
+        order.setStatus("pending");
+        order.setTotalCents(orderRequest.getTotalCents());
+        order.setCurrency(orderRequest.getCurrency() != null ? orderRequest.getCurrency() : "PEN");
+        order.setPaymentProvider(orderRequest.getPaymentProvider());
 
         List<OrderItem> orderItems = new ArrayList<>();
-        BigDecimal subtotal = BigDecimal.ZERO;
-        BigDecimal discount = BigDecimal.ZERO;
 
         for (OrderItemRequest itemRequest : orderRequest.getItems()) {
             var productOpt = productRepository.findById(itemRequest.getProductId());
@@ -81,29 +74,13 @@ public class OrderController {
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
             orderItem.setProduct(product);
-            orderItem.setPrice(itemRequest.getPrice());
             orderItem.setQuantity(itemRequest.getQuantity());
-            orderItem.setOriginalPrice(itemRequest.getOriginalPrice());
+            orderItem.setUnitPriceCents(itemRequest.getUnitPriceCents());
 
             orderItems.add(orderItem);
-
-            BigDecimal itemSubtotal = (itemRequest.getOriginalPrice() != null ? 
-                itemRequest.getOriginalPrice() : itemRequest.getPrice())
-                .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
-            subtotal = subtotal.add(itemSubtotal);
-
-            if (itemRequest.getOriginalPrice() != null) {
-                BigDecimal itemDiscount = itemRequest.getOriginalPrice()
-                    .subtract(itemRequest.getPrice())
-                    .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
-                discount = discount.add(itemDiscount);
-            }
         }
 
         order.setItems(orderItems);
-        order.setSubtotal(subtotal);
-        order.setDiscount(discount);
-        order.setTotal(subtotal.subtract(discount));
 
         Order savedOrder = orderRepository.save(order);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedOrder);
@@ -111,7 +88,7 @@ public class OrderController {
 
     @PutMapping("/{id}/status")
     public ResponseEntity<Order> updateOrderStatus(@PathVariable Long id, 
-                                                   @RequestParam OrderStatus status) {
+                                                   @RequestParam String status) {
         Optional<Order> optionalOrder = orderRepository.findById(id);
         if (optionalOrder.isEmpty()) {
             return ResponseEntity.notFound().build();
@@ -135,30 +112,33 @@ public class OrderController {
     }
 
     public static class OrderRequest {
-        private String receiptId;
-        private String paymentMethod;
+        private User user;
+        private Long totalCents;
+        private String currency;
+        private String paymentProvider;
         private List<OrderItemRequest> items;
 
-        public String getReceiptId() { return receiptId; }
-        public void setReceiptId(String receiptId) { this.receiptId = receiptId; }
-        public String getPaymentMethod() { return paymentMethod; }
-        public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+        public User getUser() { return user; }
+        public void setUser(User user) { this.user = user; }
+        public Long getTotalCents() { return totalCents; }
+        public void setTotalCents(Long totalCents) { this.totalCents = totalCents; }
+        public String getCurrency() { return currency; }
+        public void setCurrency(String currency) { this.currency = currency; }
+        public String getPaymentProvider() { return paymentProvider; }
+        public void setPaymentProvider(String paymentProvider) { this.paymentProvider = paymentProvider; }
         public List<OrderItemRequest> getItems() { return items; }
         public void setItems(List<OrderItemRequest> items) { this.items = items; }
     }
 
     public static class OrderItemRequest {
         private Long productId;
-        private BigDecimal price;
-        private BigDecimal originalPrice;
+        private Long unitPriceCents;
         private Integer quantity;
 
         public Long getProductId() { return productId; }
         public void setProductId(Long productId) { this.productId = productId; }
-        public BigDecimal getPrice() { return price; }
-        public void setPrice(BigDecimal price) { this.price = price; }
-        public BigDecimal getOriginalPrice() { return originalPrice; }
-        public void setOriginalPrice(BigDecimal originalPrice) { this.originalPrice = originalPrice; }
+        public Long getUnitPriceCents() { return unitPriceCents; }
+        public void setUnitPriceCents(Long unitPriceCents) { this.unitPriceCents = unitPriceCents; }
         public Integer getQuantity() { return quantity; }
         public void setQuantity(Integer quantity) { this.quantity = quantity; }
     }

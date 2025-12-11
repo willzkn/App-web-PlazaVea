@@ -6,8 +6,8 @@ interface CartContextType {
   items: CartItem[];
   receipts: Receipt[];
   addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: number) => void;
+  updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
@@ -21,7 +21,14 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem("plaza-cart");
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved) as CartItem[];
+      return parsed.map((item) => ({ ...item, id: Number(item.id) }));
+    } catch (error) {
+      console.error("Error parsing cart from storage", error);
+      return [];
+    }
   });
 
   const [receipts, setReceipts] = useState<Receipt[]>(() => {
@@ -55,11 +62,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = (productId: number) => {
     setItems((prev) => prev.filter((item) => item.id !== productId));
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: number, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(productId);
       return;

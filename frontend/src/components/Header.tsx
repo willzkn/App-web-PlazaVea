@@ -1,15 +1,30 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, ShoppingCart, User, Menu, X, FileText } from "lucide-react";
+import { Search, ShoppingCart, User, Menu, X, FileText, Scan, Settings, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 
 export function Header() {
   const { getCartCount } = useCart();
+  const { isAuthenticated, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
   const navigate = useNavigate();
   const cartCount = getCartCount();
 
@@ -18,6 +33,17 @@ export function Header() {
     if (searchQuery.trim()) {
       navigate(`/?search=${encodeURIComponent(searchQuery)}`);
     }
+  };
+
+  const handleBarcodeDetected = (code: string) => {
+    setSearchQuery(code);
+    setScannerError(null);
+    setIsScannerOpen(false);
+    navigate(`/?search=${encodeURIComponent(code)}`);
+  };
+
+  const handleScannerError = (message: string) => {
+    setScannerError(message);
   };
 
   return (
@@ -63,6 +89,41 @@ export function Header() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            <Dialog open={isScannerOpen} onOpenChange={(open) => {
+              setScannerError(null);
+              setIsScannerOpen(open);
+            }}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden sm:flex text-primary-foreground hover:bg-primary-foreground/10"
+                  aria-label="Abrir lector de código de barras"
+                >
+                  <Scan className="h-5 w-5" />
+                </Button>
+              </DialogTrigger>
+              {isScannerOpen && (
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Lector de código de barras</DialogTitle>
+                    <DialogDescription>
+                      Permite el acceso a la cámara para escanear códigos EAN o UPC.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <BarcodeScanner onDetected={handleBarcodeDetected} onError={handleScannerError} />
+                  {scannerError && (
+                    <p className="text-sm text-destructive text-center">{scannerError}</p>
+                  )}
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Cerrar</Button>
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              )}
+            </Dialog>
+
             <Link to="/boletas" className="hidden sm:flex">
               <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10">
                 <FileText className="h-5 w-5" />
@@ -80,6 +141,43 @@ export function Header() {
                 )}
               </Button>
             </Link>
+
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to="/admin"
+                  className="hidden sm:inline-flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 px-3 py-2 rounded-lg"
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Admin</span>
+                </Link>
+                <Link
+                  to="/gateway"
+                  className="hidden sm:inline-flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 px-3 py-2 rounded-lg"
+                >
+                  <Activity className="h-5 w-5" />
+                  <span>Gateway</span>
+                </Link>
+                <Button
+                  variant="ghost"
+                  className="hidden sm:inline-flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10"
+                  onClick={logout}
+                >
+                  <User className="h-5 w-5" />
+                  <span>Cerrar sesión</span>
+                </Button>
+              </>
+            ) : (
+              <Link to="/login">
+                <Button
+                  variant="ghost"
+                  className="hidden sm:inline-flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10"
+                >
+                  <User className="h-5 w-5" />
+                  <span>Iniciar sesión</span>
+                </Button>
+              </Link>
+            )}
 
             <Button
               variant="ghost"
@@ -136,6 +234,42 @@ export function Header() {
           >
             Carrito ({cartCount})
           </Link>
+          {isAuthenticated ? (
+            <>
+              <Link
+                to="/admin"
+                className="block text-primary-foreground hover:bg-primary-foreground/10 px-4 py-2 rounded-lg"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Admin Panel
+              </Link>
+              <Link
+                to="/gateway"
+                className="block text-primary-foreground hover:bg-primary-foreground/10 px-4 py-2 rounded-lg"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Gateway Dashboard
+              </Link>
+              <button
+                type="button"
+                className="w-full text-left text-primary-foreground hover:bg-primary-foreground/10 px-4 py-2 rounded-lg"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  logout();
+                }}
+              >
+                Cerrar sesión
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/login"
+              className="block text-primary-foreground hover:bg-primary-foreground/10 px-4 py-2 rounded-lg"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Iniciar sesión
+            </Link>
+          )}
         </nav>
       </div>
     </header>

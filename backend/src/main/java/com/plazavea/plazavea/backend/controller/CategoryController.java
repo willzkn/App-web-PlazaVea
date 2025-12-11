@@ -32,11 +32,10 @@ public class CategoryController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/slug/{slug}")
-    public ResponseEntity<Category> getCategoryBySlug(@PathVariable String slug) {
-        Optional<Category> category = categoryRepository.findBySlug(slug);
-        return category.map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @GetMapping("/name/{name}")
+    public ResponseEntity<Category> getCategoryByName(@PathVariable String name) {
+        List<Category> categories = categoryRepository.findByNameContainingIgnoreCase(name);
+        return categories.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(categories.get(0));
     }
 
     @PostMapping
@@ -45,8 +44,8 @@ public class CategoryController {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
         
-        if (categoryRepository.existsBySlug(category.getSlug())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        if (category.getName() == null || category.getName().trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
         }
 
         Category savedCategory = categoryRepository.save(category);
@@ -67,14 +66,8 @@ public class CategoryController {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
 
-        if (!category.getSlug().equals(categoryDetails.getSlug()) && 
-            categoryRepository.existsBySlug(categoryDetails.getSlug())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
-        }
-
         category.setName(categoryDetails.getName());
-        category.setIcon(categoryDetails.getIcon());
-        category.setSlug(categoryDetails.getSlug());
+        category.setParentId(categoryDetails.getParentId());
 
         Category updatedCategory = categoryRepository.save(category);
         return ResponseEntity.ok(updatedCategory);

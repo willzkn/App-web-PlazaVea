@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, CreditCard, Banknote, Smartphone, CheckCircle } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { useCart } from "@/context/CartContext";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import { orderService } from "@/services/orderService";
 
 const paymentMethods = [
   { id: "card", name: "Tarjeta de crédito/débito", icon: CreditCard },
@@ -18,6 +20,7 @@ const paymentMethods = [
 
 const Checkout = () => {
   const { items, getSubtotal, getDiscount, getCartTotal, checkout } = useCart();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [selectedPayment, setSelectedPayment] = useState("card");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,10 +39,21 @@ const Checkout = () => {
     }));
   };
 
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        name: user.name,
+        email: user.email,
+        phone: user.phone ?? "",
+      }));
+    }
+  }, [user]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.email || !formData.phone || !formData.address) {
+    if (!isAuthenticated && (!formData.name || !formData.email || !formData.phone)) {
       toast({
         title: "Campos requeridos",
         description: "Por favor completa todos los campos",
@@ -49,18 +63,45 @@ const Checkout = () => {
     }
 
     setIsProcessing(true);
-    
-    // Simulate payment processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    const receipt = checkout(paymentMethods.find((m) => m.id === selectedPayment)?.name || "");
-    
-    toast({
-      title: "¡Compra exitosa!",
-      description: `Tu boleta ${receipt.id} ha sido generada`,
-    });
 
-    navigate("/boletas");
+    try {
+      const paymentMethodName = paymentMethods.find((m) => m.id === selectedPayment)?.name || "";
+
+      if (isAuthenticated && user) {
+        const orderPayload = {
+          user: { id: user.id },
+          totalCents: Math.round(getCartTotal() * 100),
+          currency: "PEN",
+          paymentProvider: paymentMethodName,
+          items: items.map((item) => ({
+            productId: Number(item.id),
+            quantity: item.quantity,
+            unitPriceCents: Math.round(item.price * 100),
+          })),
+        };
+
+        await orderService.create(orderPayload);
+      }
+
+      const receipt = checkout(paymentMethodName);
+
+      toast({
+        title: "¡Compra exitosa!",
+        description: `Tu boleta ${receipt.id} ha sido generada`,
+      });
+
+      navigate("/boletas");
+    } catch (error) {
+      console.error("Error creando pedido", error);
+      toast({
+        title: "Error al registrar el pedido",
+        description: "Intenta nuevamente en unos minutos.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+
   };
 
   if (items.length === 0) {
@@ -89,45 +130,69 @@ const Checkout = () => {
               {/* Checkout Form */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Delivery Info */}
-                <section className="plaza-card p-6">
-                  <h2 className="font-heading text-xl font-bold text-foreground mb-4">
-                    Información de entrega
-                  </h2>
+                <section className="plaza-card p-6 space-y-5">
+                  <h2 className="font-heading text-xl font-bold text-foreground">Información de entrega</h2>
+
+                  {isAuthenticated && user ? (
+                    <div className="rounded-xl border border-border bg-secondary/40 p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Nombre</span>
+                        <span className="font-medium text-foreground">{user.name}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Correo electrónico</span>
+                        <span className="font-medium text-foreground break-all">{user.email}</span>
+                      </div>
+                      {user.phone && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Teléfono</span>
+                          <span className="font-medium text-foreground">{user.phone}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Estos datos provienen de tu cuenta. Puedes actualizarlos en el panel de administración.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="sm:col-span-2">
+                        <Label htmlFor="name">Nombre completo</Label>
+                        <Input
+                          id="name"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          placeholder="Juan Pérez"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="email">Correo electrónico</Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          placeholder="juan@ejemplo.com"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="phone">Teléfono</Label>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          placeholder="999 888 777"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <Label htmlFor="name">Nombre completo</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="Juan Pérez"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Correo electrónico</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        placeholder="juan@ejemplo.com"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="phone">Teléfono</Label>
-                      <Input
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        placeholder="999 888 777"
-                        className="mt-1"
-                      />
-                    </div>
                     <div className="sm:col-span-2">
                       <Label htmlFor="address">Dirección</Label>
                       <Input

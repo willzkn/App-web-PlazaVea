@@ -1,9 +1,9 @@
 package com.plazavea.plazavea.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import java.math.BigDecimal;
 
 @Entity
 @Table(name = "order_items")
@@ -13,33 +13,33 @@ public class OrderItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @ManyToOne(fetch = FetchType.LAZY)
+    @NotNull(message = "El pedido es obligatorio")
+    @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
     
-    @ManyToOne(fetch = FetchType.LAZY)
+    @NotNull(message = "El producto es obligatorio")
+    @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
     
-    @NotNull(message = "El precio es obligatorio")
-    @DecimalMin(value = "0.0", inclusive = false, message = "El precio debe ser mayor a 0")
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
-    
     @NotNull(message = "La cantidad es obligatoria")
+    @Min(value = 1, message = "La cantidad debe ser al menos 1")
     @Column(nullable = false)
     private Integer quantity;
     
-    @Column(precision = 10, scale = 2)
-    private BigDecimal originalPrice;
+    @NotNull(message = "El precio unitario es obligatorio")
+    @Column(name = "unit_price_cents", nullable = false)
+    private Long unitPriceCents;
     
     public OrderItem() {}
     
-    public OrderItem(Order order, Product product, BigDecimal price, Integer quantity) {
+    public OrderItem(Order order, Product product, Integer quantity, Long unitPriceCents) {
         this.order = order;
         this.product = product;
-        this.price = price;
         this.quantity = quantity;
+        this.unitPriceCents = unitPriceCents;
     }
     
     public Long getId() {
@@ -66,14 +66,6 @@ public class OrderItem {
         this.product = product;
     }
     
-    public BigDecimal getPrice() {
-        return price;
-    }
-    
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-    
     public Integer getQuantity() {
         return quantity;
     }
@@ -82,11 +74,11 @@ public class OrderItem {
         this.quantity = quantity;
     }
     
-    public BigDecimal getOriginalPrice() {
-        return originalPrice;
+    public Long getUnitPriceCents() {
+        return unitPriceCents;
     }
     
-    public void setOriginalPrice(BigDecimal originalPrice) {
-        this.originalPrice = originalPrice;
+    public void setUnitPriceCents(Long unitPriceCents) {
+        this.unitPriceCents = unitPriceCents;
     }
 }

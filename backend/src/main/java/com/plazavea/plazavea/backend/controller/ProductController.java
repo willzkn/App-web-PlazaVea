@@ -32,21 +32,21 @@ public class ProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/category/{category}")
-    public ResponseEntity<List<Product>> getProductsByCategory(@PathVariable String category) {
-        List<Product> products = productRepository.findByCategory(category);
+    @GetMapping("/category/{categoryId}")
+    public ResponseEntity<List<Product>> getProductsByCategory(@PathVariable Long categoryId) {
+        List<Product> products = productRepository.findByCategoryId(categoryId);
         return ResponseEntity.ok(products);
     }
 
-    @GetMapping("/promo")
-    public ResponseEntity<List<Product>> getPromoProducts() {
-        List<Product> products = productRepository.findByIsPromoTrue();
+    @GetMapping("/discount")
+    public ResponseEntity<List<Product>> getDiscountProducts() {
+        List<Product> products = productRepository.findByDiscountCentsGreaterThan(0L);
         return ResponseEntity.ok(products);
     }
 
-    @GetMapping("/new")
-    public ResponseEntity<List<Product>> getNewProducts() {
-        List<Product> products = productRepository.findByIsNewTrue();
+    @GetMapping("/available")
+    public ResponseEntity<List<Product>> getAvailableProducts() {
+        List<Product> products = productRepository.findByInventoryGreaterThan(0);
         return ResponseEntity.ok(products);
     }
 
@@ -55,15 +55,22 @@ public class ProductController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String search) {
         
+        Long categoryId = null;
+        try {
+            categoryId = category != null ? Long.parseLong(category) : null;
+        } catch (NumberFormatException e) {
+            categoryId = null;
+        }
+        
         List<Product> products;
-        if (category != null && !category.isEmpty()) {
+        if (categoryId != null) {
             if (search != null && !search.isEmpty()) {
-                products = productRepository.findByCategoryAndSearch(category, search);
+                products = productRepository.findByCategoryAndSearch(categoryId, search);
             } else {
-                products = productRepository.findByCategory(category);
+                products = productRepository.findByCategoryId(categoryId);
             }
         } else if (search != null && !search.isEmpty()) {
-            products = productRepository.findByNameOrDescriptionContaining(search);
+            products = productRepository.findByNameOrDescriptionOrSkuContaining(search);
         } else {
             products = productRepository.findAll();
         }
@@ -97,15 +104,12 @@ public class ProductController {
 
         product.setName(productDetails.getName());
         product.setDescription(productDetails.getDescription());
-        product.setPrice(productDetails.getPrice());
-        product.setOriginalPrice(productDetails.getOriginalPrice());
-        product.setImage(productDetails.getImage());
+        product.setSku(productDetails.getSku());
         product.setCategory(productDetails.getCategory());
-        product.setUnit(productDetails.getUnit());
-        product.setStock(productDetails.getStock());
-        product.setIsPromo(productDetails.getIsPromo());
-        product.setIsNew(productDetails.getIsNew());
-        product.setDiscount(productDetails.getDiscount());
+        product.setPriceCents(productDetails.getPriceCents());
+        product.setDiscountCents(productDetails.getDiscountCents());
+        product.setInventory(productDetails.getInventory());
+        product.setImageUrl(productDetails.getImageUrl());
 
         Product updatedProduct = productRepository.save(product);
         return ResponseEntity.ok(updatedProduct);
@@ -121,15 +125,15 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{id}/stock")
-    public ResponseEntity<Product> updateStock(@PathVariable Long id, @RequestParam Integer stock) {
+    @PatchMapping("/{id}/inventory")
+    public ResponseEntity<Product> updateInventory(@PathVariable Long id, @RequestParam Integer inventory) {
         Optional<Product> optionalProduct = productRepository.findById(id);
         if (optionalProduct.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         Product product = optionalProduct.get();
-        product.setStock(stock);
+        product.setInventory(inventory);
         Product updatedProduct = productRepository.save(product);
         
         return ResponseEntity.ok(updatedProduct);
