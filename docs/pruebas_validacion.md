@@ -1,4 +1,4 @@
-# 9.3 Pruebas de Validación
+# Pruebas de Validación
 
 ## Tipos de Pruebas de Validación
 
